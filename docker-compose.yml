@@ -1,0 +1,32 @@
+services:
+  gigaam-asr:
+    build: .
+    container_name: gigaam-asr
+    ports:
+      - "5002:5002"
+    volumes:
+      # Native gigaam cache: v3_e2e_rnnt.ckpt + tokenizer (downloaded once from Sber CDN)
+      - ./model:/models
+    environment:
+      GIGAAM_MODEL: v3_e2e_rnnt
+      GIGAAM_MODEL_PATH: /models
+      DEVICE: cuda
+      FP16_ENCODER: "true"
+      HOST: 0.0.0.0
+      PORT: 5002
+      WARMUP_ON_START: "true"
+      MAX_AUDIO_DURATION_SEC: "25"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s

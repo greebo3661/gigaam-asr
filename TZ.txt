@@ -1,0 +1,79 @@
+# ТЗ: GigaAM ASR на Windows (GTX 1080) и связка с Linux Gateway
+
+**Версия:** 1.0
+**Дата:** 2026-06-04
+**Модель:** [ai-sage/GigaAM-v3](https://huggingface.co/ai-sage/GigaAM-v3), revision **e2e_rnnt** (локально `d:\docker\gigaam\model\`)
+**Linux gateway:** `/opt/asterisk-transcriber` (192.168.149.194)
+**Asterisk:** Docker `asterisk-lab`, 192.168.148.109:8088 ARI
+
+---
+
+## 1. Цель
+
+Поднять на **Windows Server 2022** (хост Asterisk, **GTX 1080 8 GB**) HTTP-сервис распознавания речи на **GigaAM-v3**, совместимый с контрактом `POST /api/v1/transcribe-chunk`, чтобы Linux gateway в режиме `voice_bot` отправлял туда аудио-чанки 16 kHz mono.
+
+---
+
+## 2. Ограничения и допущения
+
+| Параметр | Значение |
+|----------|----------|
+| ОС | Windows Server 2022 |
+| GPU | NVIDIA GTX 1080, 8 GB VRAM |
+| Модель | GigaAM-v3 **v3_e2e_rnnt** через pip-пакет `gigaam` (`.ckpt` в `./model/`) |
+| Язык | русский (`language=ru` в ответе) |
+| Формат аудио | WAV 16 kHz mono PCM s16le (чанки ≤ 25 с) |
+| Порт | **5002** (остановить `whisper-asr` перед запуском `gigaam-asr`) |
+
+---
+
+## 3. Зависимости (карточка модели)
+
+Обязательно для inference (короткие чанки):
+
+- `torch==2.6.0+cu124`, `torchaudio==2.6.0+cu124` (макс. для CUDA 12.4; 2.8 — только cu128+)
+- `pip install gigaam` из [GitHub](https://github.com/salute-developers/GigaAM) + extra `[torch]`
+- `ffmpeg` в контейнере
+
+**Не нужны** для `transcribe()` до 25 с: `transformers`, `pyannote-audio`, `torchcodec` (только longform extra).
+
+---
+
+## 4. Контракт API
+
+Идентичен Whisper/GigaAM gateway — см. [whisper/TZ.txt](../whisper/TZ.txt) §3.
+
+---
+
+## 5. Состав поставки
+
+```
+d:\docker\gigaam\
+├── model\                 # веса HF (pytorch_model.bin, config, modeling_gigaam.py, tokenizer.model)
+├── main.py
+├── transcriber.py
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+└── scripts\
+```
+
+---
+
+## 6. Чеклист приёмки
+
+- [ ] `nvidia-smi` GTX 1080 OK
+- [ ] VRAM при загруженном GigaAM e2e_rnnt: _____ MiB
+- [ ] `GET http://127.0.0.1:5002/health` → `{"status":"ok"}`
+- [ ] `GET http://192.168.148.109:5002/health` с LAN
+- [ ] `POST transcribe-chunk` 4 с русской речи → осмысленный `text`
+- [ ] Firewall TCP 5002 с 192.168.149.0/24
+- [ ] `whisper-asr` остановлен (конфликт порта 5002)
+
+---
+
+## 7. Ссылки
+
+- [ai-sage/GigaAM-v3](https://huggingface.co/ai-sage/GigaAM-v3)
+- Исследование моделей: [GIGAAM-V3-MODELS-RESEARCH.md](GIGAAM-V3-MODELS-RESEARCH.md)
+- Контракт gateway: [VOICE-BOT-HANDOFF.md](../VOICE-BOT-HANDOFF.md)

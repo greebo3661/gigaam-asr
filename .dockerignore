@@ -1,0 +1,7 @@
+logs/
+scripts/
+*.md
+.env
+.env.*
+test-chunk*.wav
+test-chunk*.mp3
